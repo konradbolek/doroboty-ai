@@ -1,3 +1,4 @@
+import { usePostHog } from "@posthog/react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -67,6 +68,7 @@ export function EmployerJobs() {
 }
 export function EmployerJobEditor() {
   const { id } = useParams();
+  const posthog = usePostHog();
   const { state, run } = usePrototype();
   const person = currentPerson(state)!;
   const navigate = useNavigate();
@@ -133,7 +135,22 @@ export function EmployerJobEditor() {
       );
       return;
     }
-    if (run({ type: "publish", job: parsed.data })) navigate("/app/oferty");
+    if (run({ type: "publish", job: parsed.data })) {
+      posthog.capture("job_published", {
+        is_new: !existing,
+        job_category: parsed.data.category,
+        job_function: parsed.data.function,
+        remote_status: parsed.data.remoteStatus,
+      });
+      posthog.logger.info("job published", {
+        event: "job_published",
+        is_new: !existing,
+        job_category: parsed.data.category,
+        job_function: parsed.data.function,
+        remote_status: parsed.data.remoteStatus,
+      });
+      navigate("/app/oferty");
+    }
   }
   return (
     <>
@@ -273,6 +290,7 @@ export function EmployerJobEditor() {
   );
 }
 export function CompanyEditor() {
+  const posthog = usePostHog();
   const { state, run } = usePrototype();
   const person = currentPerson(state)!;
   const company = state.companies.find((x) => x.id === person.companyId)!;
@@ -286,8 +304,10 @@ export function CompanyEditor() {
         name: String(data.get("name")),
         description: String(data.get("description")),
       })
-    )
+    ) {
+      posthog.capture("company_profile_updated");
       setMessage("Dane firmy zostały zapisane.");
+    }
   }
   return (
     <>

@@ -1,3 +1,4 @@
+import { usePostHog } from "@posthog/react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
 import { CheckCircle2, FileText } from "lucide-react";
@@ -140,6 +141,7 @@ export function WorkspaceHome() {
   );
 }
 export function ProfilePage({ preview = false }: { preview?: boolean }) {
+  const posthog = usePostHog();
   const { state, run } = usePrototype();
   const person = currentPerson(state)!;
   const [message, setMessage] = useState("");
@@ -156,8 +158,10 @@ export function ProfilePage({ preview = false }: { preview?: boolean }) {
           location: String(data.get("location")),
         },
       })
-    )
+    ) {
+      posthog.capture("profile_updated");
       setMessage("Profil został zapisany.");
+    }
   }
   return (
     <>
@@ -231,6 +235,7 @@ export function SavedPage() {
 }
 export function ApplyPage() {
   const { slug } = useParams();
+  const posthog = usePostHog();
   const { state, run } = usePrototype();
   const person = currentPerson(state)!;
   const navigate = useNavigate();
@@ -282,6 +287,11 @@ export function ApplyPage() {
       return;
     }
     if (run({ type: "submit", jobId: job!.id, notes, generated, answer, consent })) {
+      posthog.capture("application_submitted", { job_category: job!.category });
+      posthog.logger.info("application submitted", {
+        event: "application_submitted",
+        job_category: job!.category,
+      });
       submittedOnce.current = true;
       setSubmitted(true);
       if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -387,8 +397,10 @@ export function ApplyPage() {
                 disabled={submitted}
                 variant="outline"
                 onClick={() => {
-                  if (run({ type: "draft", jobId: job.id, notes, generated, answer }))
+                  if (run({ type: "draft", jobId: job.id, notes, generated, answer })) {
+                    posthog.capture("application_draft_saved", { job_category: job.category });
                     setMessage("Szkic został zapisany.");
+                  }
                 }}
               >
                 Zapisz szkic
